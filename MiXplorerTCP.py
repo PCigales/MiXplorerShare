@@ -7,7 +7,7 @@ import random
 import socket
 import time
 import threading
-import subprocess
+# import subprocess
 import argparse
 from functools import partial
 import msvcrt
@@ -111,7 +111,7 @@ class MiXplorerTCP():
     iphlpapi.GetIpNetTable(b, byref(s), True)
     g = (('.'.join(str(int(e)) for e in b[20+24*i:24+24*i]), int.from_bytes(b[24+24*i], "little")) for i in range(int.from_bytes(b[0:4], "little")))
     ip_arp = list(e[0] for e in g if e[1] != 2 and '.'.join(e[0].split('.')[0:2]) == '.'.join(self.ip.split('.')[0:2]))[:-1]
-    ip_gen = (ip for g in (ip_arp, ('.'.join((ip_p, str(h))) for h in range(1, 254))) for ip in g if ip != self.ip)
+    ip_gen = (ip for g in (ip_arp, ('.'.join((ip_p, str(h))) for h in range(1, 254) if not '.'.join((ip_p, str(h))) in ip_arp)) for ip in g if ip != self.ip)
     for ip in ip_gen:
       print(' ' + ip.ljust(15), end ='\b'*16, flush=True)
       sock = socket.socket()
