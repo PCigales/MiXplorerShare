@@ -7,6 +7,7 @@ import random
 import socket
 import time
 import threading
+import subprocess
 import argparse
 from functools import partial
 import msvcrt
@@ -80,41 +81,44 @@ class MiXplorerTCP():
     print('Initiating the transfer to %s:%s...' % (ip, self.port))
     sock = socket.socket()
     sock.connect((ip, self.port))
-    for s, d in zip(src_list, dst_list):
-      message = b'false\n' + self.md5_password + b'\n' + str(os.path.getsize(s)).encode('utf-8') + b'\n' + str(int(os.path.getmtime(s))).encode('utf-8') + b'000\n' + d.encode('utf-8')
-      plain_message = message + b'\x00' * (15 - (len(message) + 15) % 16)
-      iv = bytes(random.randint(0,255) for i in range(16))
-      with AES(self.md5_password) as aes:
+    with AES(self.md5_password) as aes:
+      for s, d in zip(src_list, dst_list):
+        message = b'false\n' + self.md5_password + b'\n' + str(os.path.getsize(s)).encode('utf-8') + b'\n' + str(int(os.path.getmtime(s))).encode('utf-8') + b'000\n' + d.encode('utf-8')
+        plain_message = message + b'\x00' * (15 - (len(message) + 15) % 16)
+        iv = bytes(random.randint(0,255) for i in range(16))
         cipher_message = aes.Cipher(iv, plain_message)
-      sock.sendall(iv + cipher_message)
-      sock.recv(100)
-      print('Sending %s...' % s) 
-      file = open(s, 'rb')
-      shutil.copyfileobj(file, sock.makefile('wb'))
-      file.close()
-      sock.recv(100)
-      print('File %s sent as %s' % (s, d))
+        sock.sendall(iv + cipher_message)
+        sock.recv(100)
+        print('Sending %s...' % s) 
+        file = open(s, 'rb')
+        shutil.copyfileobj(file, sock.makefile('wb'))
+        file.close()
+        sock.recv(100)
+        print('File %s sent as %s' % (s, d))
     sock.close()
 
   def SendtoFirst(self, src, dst):
     ip_p, ip_h = self.ip.rsplit('.', 1)
-    print('Looking for a device running a server on port %s...%s.   ' % (self.port, ip_p), end ='\b'*4, flush=True)
-    for h in range(1, 254):
-      if str(h) != ip_h:
-        print('.' + str(h).ljust(3), end ='\b'*4, flush=True)
-        sock = socket.socket()
-        sock.settimeout(0.5)
-        try:
-          sock.connect(('.'.join((ip_p, str(h))), self.port))
-          sock.send(b'*model*')
-          print('\r\nFound %s' % sock.recv(1024).decode('utf-8'))
-          sock.close()
-          time.sleep(0.5)
-          self.Sendto('.'.join((ip_p, str(h))), src, dst)
-          return
-        except socket.timeout:
-          sock.close()
-          pass
+    ip_gen_arp = iter([])
+    print('Looking for a device running a server on port %s...' % self.port, end ='', flush=True)
+    process_result = subprocess.run('for /F %%1 in (\'arp -a ^| find "  %s." ^| sort\') do @echo %%1' % ip_p.rsplit('.', 2)[0], shell=True, capture_output=True)
+    if process_result.returncode == 0:
+      ip_gen_arp = (ip.strip() for ip in process_result.stdout.decode('utf-8').splitlines()[:-1])
+    ip_gen = (ip for g in (ip_gen_arp, ('.'.join((ip_p, str(h))) for h in range(1, 254))) for ip in g if ip != self.ip)
+    for ip in ip_gen:
+      print(' ' + ip.ljust(15), end ='\b'*16, flush=True)
+      sock = socket.socket()
+      sock.settimeout(0.5)
+      try:
+        sock.connect((ip, self.port))
+        sock.send(b'*model*')
+        print('\r\nFound %s' % sock.recv(1024).decode('utf-8'))
+        sock.close()
+        time.sleep(0.5)
+        self.Sendto(ip, src, dst)
+        return
+      except:
+        sock.close()
     print('\r\nNo device was found')
 
   def _StartReceiving(self, user, device, root):
@@ -130,10 +134,11 @@ class MiXplorerTCP():
         except:
           break
         msg = b''
+        sock.settimeout(1)
         while msg != b'*model*':
-          sock.settimeout(0.5)
           try:
             msg = msg + sock.recv(1024)
+            sock.settimeout(0.1)
             if msg == b'':
               break
             if msg == b'*model*':
@@ -168,6 +173,7 @@ class MiXplorerTCP():
               sock.send(b'finished')
               print('File %s received' % filepath)
               msg = b''
+              sock.settimeout(1) 
             else:
               break
         sock.close()
