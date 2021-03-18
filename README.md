@@ -1,5 +1,5 @@
 # MiXplorerTCP
-A script in Python 3 to send a file to a MiXplorer TCP server
+A script in Python 3 to transfer files with MiXplorer TCP
 
 This script provides a way to transfer files and folders between a computer under Windows and an Android phone running the application MiXplorer (http://mixplorer.com/ and https://play.google.com/store/apps/details?id=com.mixplorer.silver) through its TCP sharing functionality.
 To work properly, it needs the chosen port to be authorized in the firewall on the computer for TCP incoming and outgoing connections. The same port and the same password must be used in the script and in the settings of the TCP server in MiXplorer.
