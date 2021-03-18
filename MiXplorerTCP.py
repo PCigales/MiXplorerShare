@@ -13,12 +13,12 @@ from functools import partial
 import msvcrt
 
 HANDLE = ctypes.wintypes.HANDLE
-pointer = ctypes.pointer
 byref = ctypes.byref
 LPCWSTR = ctypes.wintypes.LPCWSTR
 ULONG = ctypes.wintypes.ULONG
 DWORD = ctypes.wintypes.DWORD
 bcrypt = ctypes.WinDLL('bcrypt', use_last_error=True)
+iphlpapi = ctypes.WinDLL('iphlpapi', use_last_error=True)
 
 random.seed()
 
@@ -99,12 +99,19 @@ class MiXplorerTCP():
 
   def SendtoFirst(self, src, dst):
     ip_p, ip_h = self.ip.rsplit('.', 1)
-    ip_gen_arp = iter([])
+    ip_arp = []
     print('Looking for a device running a server on port %s...' % self.port, end ='', flush=True)
     process_result = subprocess.run('for /F %%1 in (\'arp -a ^| find "  %s." ^| sort\') do @echo %%1' % ip_p.rsplit('.', 2)[0], shell=True, capture_output=True)
-    if process_result.returncode == 0:
-      ip_gen_arp = (ip.strip() for ip in process_result.stdout.decode('utf-8').splitlines()[:-1])
-    ip_gen = (ip for g in (ip_gen_arp, ('.'.join((ip_p, str(h))) for h in range(1, 254))) for ip in g if ip != self.ip)
+#    if process_result.returncode == 0:
+#      ip_gen_arp = (ip.strip() for ip in process_result.stdout.decode('utf-8').splitlines()[:-1])
+    s = ULONG(0)
+    iphlpapi.GetIpNetTable(None, byref(s), True)
+    s = ULONG(s.value + 24 * 10)
+    b = ctypes.create_string_buffer(s.value)
+    iphlpapi.GetIpNetTable(b, byref(s), True)
+    g = (('.'.join(str(int(e)) for e in b[20+24*i:24+24*i]), int.from_bytes(b[24+24*i], "little")) for i in range(int.from_bytes(b[0:4], "little")))
+    ip_arp = list(e[0] for e in g if e[1] != 2 and '.'.join(e[0].split('.')[0:2]) == '.'.join(self.ip.split('.')[0:2]))[:-1]
+    ip_gen = (ip for g in (ip_arp, ('.'.join((ip_p, str(h))) for h in range(1, 254))) for ip in g if ip != self.ip)
     for ip in ip_gen:
       print(' ' + ip.ljust(15), end ='\b'*16, flush=True)
       sock = socket.socket()
