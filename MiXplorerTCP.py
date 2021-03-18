@@ -101,9 +101,9 @@ class MiXplorerTCP():
     ip_p, ip_h = self.ip.rsplit('.', 1)
     ip_arp = []
     print('Looking for a device running a server on port %s...' % self.port, end ='', flush=True)
-    process_result = subprocess.run('for /F %%1 in (\'arp -a ^| find "  %s." ^| sort\') do @echo %%1' % ip_p.rsplit('.', 2)[0], shell=True, capture_output=True)
+#    process_result = subprocess.run('for /F %%1 in (\'arp -a ^| find "  %s." ^| sort\') do @echo %%1' % ip_p.rsplit('.', 2)[0], shell=True, capture_output=True)
 #    if process_result.returncode == 0:
-#      ip_gen_arp = (ip.strip() for ip in process_result.stdout.decode('utf-8').splitlines()[:-1])
+#      ip_arp = (ip.strip() for ip in process_result.stdout.decode('utf-8').splitlines()[:-1])
     s = ULONG(0)
     iphlpapi.GetIpNetTable(None, byref(s), True)
     s = ULONG(s.value + 24 * 10)
