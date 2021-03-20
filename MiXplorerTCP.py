@@ -5,6 +5,7 @@ import os, os.path
 from pathlib import Path
 import random
 import socket
+import ssl
 import time
 import threading
 # import subprocess
@@ -21,6 +22,7 @@ bcrypt = ctypes.WinDLL('bcrypt', use_last_error=True)
 iphlpapi = ctypes.WinDLL('iphlpapi', use_last_error=True)
 
 random.seed()
+SCRIPT_PATH = os.path.dirname(__file__)
 
 class AES():
   
@@ -65,11 +67,20 @@ class AES():
 
 class MiXplorerTCP():
 
-  def __init__(self, port, password):
+  def __init__(self, port, password, secure=False, kpassword=None):
     self.ip = socket.gethostbyname(socket.gethostname())
     self.port = port
     self.md5_password = hashlib.md5(password.encode('utf-8')).hexdigest().encode('utf-8')
+    self.secure = secure
     self.lsock = None
+    if secure:
+      self.context = ssl.SSLContext(ssl.PROTOCOL_TLS)
+      self.context.maximum_version = ssl.TLSVersion.TLSv1_2
+      if kpassword:
+        try:
+          self.context.load_cert_chain(r'%s\%s' % (SCRIPT_PATH, 'cert.pem'), r'%s\%s' % (SCRIPT_PATH, 'key.pem'), password=kpassword)
+        except:
+          print('Could not load cert.pem and key.pem with password ' + kpassword)
 
   def Sendto(self, ip, src, dst):
     if os.path.isdir(src):
@@ -79,23 +90,53 @@ class MiXplorerTCP():
       src_list = [src]
       dst_list = [dst or os.path.basename(src)]
     print('Initiating the transfer to %s:%s...' % (ip, self.port))
-    sock = socket.socket()
-    sock.connect((ip, self.port))
+    so = socket.socket()
+    if self.secure:
+      sock = self.context.wrap_socket(so, server_side=False)
+    else:
+      sock = so
+    try:
+      sock.connect((ip, self.port))
+    except:
+      print('Could not connect to %s:%s' % (ip, self.port))
+      sock.close()
+      return False
     with AES(self.md5_password) as aes:
       for s, d in zip(src_list, dst_list):
-        message = b'false\n' + self.md5_password + b'\n' + str(os.path.getsize(s)).encode('utf-8') + b'\n' + str(int(os.path.getmtime(s))).encode('utf-8') + b'000\n' + d.encode('utf-8')
+        message = (b'true' if self.secure else b'false') + b'\n' + self.md5_password + b'\n' + str(os.path.getsize(s)).encode('utf-8') + b'\n' + str(int(os.path.getmtime(s))).encode('utf-8') + b'000\n' + d.encode('utf-8')
         plain_message = message + b'\x00' * (15 - (len(message) + 15) % 16)
         iv = bytes(random.randint(0,255) for i in range(16))
         cipher_message = aes.Cipher(iv, plain_message)
-        sock.sendall(iv + cipher_message)
-        sock.recv(100)
-        print('Sending %s...' % s) 
-        file = open(s, 'rb')
-        shutil.copyfileobj(file, sock.makefile('wb'))
-        file.close()
-        sock.recv(100)
-        print('File %s sent as %s' % (s, d))
-    sock.close()
+        try:
+          sock.sendall(iv + cipher_message)
+          if sock.recv(100) != b'Write the binary now...':
+            raise
+          print('Sending %s...' % s) 
+        except:
+          print('Could not initiate the transfer to %s:%s' % (ip, self.port))
+          sock.close()
+          return False
+        try:
+          file = open(s, 'rb')
+        except:
+          print('Could not open the file %s' % s)
+          return None
+        try:
+          shutil.copyfileobj(file, sock.makefile('wb'))
+        except:
+          print('Could not achieve the transfer to %s:%s' % (ip, self.port))
+          sock.close()
+          return False
+        finally:
+          file.close()
+        try:
+          if sock.recv(100) == b'finished':
+            print('File %s sent as %s' % (s, d))
+          else:
+            print('Could not achieve the transfer to %s:%s' % (ip, self.port))
+        except:
+          print('Could not achieve the transfer to %s:%s' % (ip, self.port))
+      sock.close()
 
   def SendtoFirst(self, src, dst):
     ip_p, ip_h = self.ip.rsplit('.', 1)
@@ -114,7 +155,11 @@ class MiXplorerTCP():
     ip_gen = (ip for g in (ip_arp, ('.'.join((ip_p, str(h))) for h in range(1, 254) if not '.'.join((ip_p, str(h))) in ip_arp)) for ip in g if ip != self.ip)
     for ip in ip_gen:
       print(' ' + ip.ljust(15), end ='\b'*16, flush=True)
-      sock = socket.socket()
+      so = socket.socket()
+      if self.secure:
+        sock = self.context.wrap_socket(so, server_side=False)
+      else:
+        sock = so
       sock.settimeout(0.5)
       try:
         sock.connect((ip, self.port))
@@ -122,7 +167,9 @@ class MiXplorerTCP():
         print('\r\nFound %s' % sock.recv(1024).decode('utf-8'))
         sock.close()
         time.sleep(0.5)
-        self.Sendto(ip, src, dst)
+        if self.Sendto(ip, src, dst) == False:
+          print('Looking for a device running a server on port %s...' % self.port, end ='', flush=True)
+          raise
         return
       except:
         sock.close()
@@ -130,7 +177,11 @@ class MiXplorerTCP():
 
   def _StartReceiving(self, user, device, root):
     ren = lambda f, c: (' (%s)' % c if c else '').join(os.path.splitext(f))
-    self.lsock = socket.socket()
+    so = socket.socket()
+    if self.secure:
+      self.lsock = self.context.wrap_socket(so, server_side=True)
+    else:
+      self.lsock = socket.socket()
     self.lsock.bind((self.ip, self.port))
     self.lsock.listen()
     print('TCP server %s|%s started on port %s' % (user, device, self.port))
@@ -139,7 +190,7 @@ class MiXplorerTCP():
         try:
           sock = self.lsock.accept()[0]
         except:
-          break
+          continue
         msg = b''
         sock.settimeout(1)
         while msg != b'*model*':
@@ -204,6 +255,7 @@ if __name__ == '__main__':
   send_parser.add_argument('--ip', '-i', metavar='PHONE_IP', help='ip of the phone (otherwise will choose the first responding device inside the /24 subnet)', default='')
   send_parser.add_argument('--port', '-p', metavar='TCP_PORT', help='port of the TCP server on the phone (otherwise set to 5225)', type=int, default=5225)
   send_parser.add_argument('--password', '-w', metavar='TCP_PASSWORD', help='password of the TCP server on the phone (otherwise set to none)', default='')
+  send_parser.add_argument('--secure', '-s', help='enables secure communication with the TCP server on the phone (otherwise not activated)', action='store_true')
   send_parser.add_argument('--dest', '-d', metavar='FILE_DESTPATH', help='absolute or relative path of the file on the phone (otherwise set to just the name of the file)', default='')
   send_parser.add_argument('src', metavar='FILE_SRCPATH', help='path to the file on the computer')
   receive_parser = subparsers.add_parser('receive', aliases=['r'], help='Receives files from MiXplorer TCP "send to..."')
@@ -211,12 +263,17 @@ if __name__ == '__main__':
   receive_parser.add_argument('--password', '-w', metavar='TCP_PASSWORD', help='password of the TCP server on the computer (otherwise set to none)', default='')
   receive_parser.add_argument('--user', '-u', metavar='TCP_USER', help='username of the TCP server on the computer (otherwise set to none)', default='')
   receive_parser.add_argument('--device', '-d', metavar='TCP_DEVICE', help='devicename of the TCP server on the computer (otherwise set to PC)', default='PC')
+  receive_parser.add_argument('--secure', '-s', help='enables secure communication with the phone (otherwise not activated, needs cert.pem and key.pem)', action='store_true')
+  receive_parser.add_argument('--kpassword', '-k', metavar='TLS_KPASSWORD', help='password used for encrypting key.pem (used in conjunction with --secure)')
   receive_parser.add_argument('--root', '-r', metavar='FILE_ROOTPATH', help='root path of file storage on the computer (otherwise set to none)', default='')
   args = parser.parse_args()
   if not args.command:
     parser.print_help()
     exit()
-  mtcp = MiXplorerTCP(args.port, args.password)
+  if args.command.lower() in ('receive', 'r'):
+    if args.secure and not args.kpassword:
+      receive_parser.error("with --secure, the following argument is required: --kpassword/-k")
+  mtcp = MiXplorerTCP(args.port, args.password, args.secure, args.kpassword if args.command.lower() == 'r' else None)
   if args.command.lower() in ('send', 's'):
     if args.ip:
       mtcp.Sendto(args.ip, args.src, args.dest)
