@@ -83,12 +83,16 @@ class MiXplorerTCP():
           print('Could not load cert.pem and key.pem with password ' + kpassword)
 
   def Sendto(self, ip, src, dst):
-    if os.path.isdir(src):
-      src_list = list((e[0] + '\\' + f) for e in os.walk(src) for f in e[2])
-      dst_list = list((dst.rstrip('/') + (dst and '/') + os.path.relpath(f, os.path.dirname(src)).replace('\\', '/')) for f in src_list)
-    else:
-      src_list = [src]
-      dst_list = [dst or os.path.basename(src)]
+    src_list = []
+    dst_list = []
+    for s in src:
+      if os.path.isdir(s):
+        s_list = list((e[0] + '\\' + f) for e in os.walk(s) for f in e[2])
+        src_list += s_list
+        dst_list += list((dst.rstrip('/') + (dst and '/') + os.path.relpath(f, os.path.dirname(s)).replace('\\', '/')) for f in s_list)
+      else:
+        src_list += [s]
+        dst_list += [dst or os.path.basename(s)]
     print('Initiating the transfer to %s:%s...' % (ip, self.port))
     so = socket.socket()
     if self.secure:
@@ -103,7 +107,11 @@ class MiXplorerTCP():
       return False
     with AES(self.md5_password) as aes:
       for s, d in zip(src_list, dst_list):
-        message = (b'true' if self.secure else b'false') + b'\n' + self.md5_password + b'\n' + str(os.path.getsize(s)).encode('utf-8') + b'\n' + str(int(os.path.getmtime(s))).encode('utf-8') + b'000\n' + d.encode('utf-8')
+        try:
+          message = (b'true' if self.secure else b'false') + b'\n' + self.md5_password + b'\n' + str(os.path.getsize(s)).encode('utf-8') + b'\n' + str(int(os.path.getmtime(s))).encode('utf-8') + b'000\n' + d.encode('utf-8')
+        except:
+          print('Could not open the file %s' % s)
+          continue
         plain_message = message + b'\x00' * (15 - (len(message) + 15) % 16)
         iv = bytes(random.randint(0,255) for i in range(16))
         cipher_message = aes.Cipher(iv, plain_message)
@@ -120,7 +128,8 @@ class MiXplorerTCP():
           file = open(s, 'rb')
         except:
           print('Could not open the file %s' % s)
-          return None
+          sock.close()
+          continue
         try:
           shutil.copyfileobj(file, sock.makefile('wb'))
         except:
@@ -257,7 +266,7 @@ if __name__ == '__main__':
   send_parser.add_argument('--password', '-w', metavar='TCP_PASSWORD', help='password of the TCP server on the phone (otherwise set to none)', default='')
   send_parser.add_argument('--secure', '-s', help='enables secure communication with the TCP server on the phone (otherwise not activated)', action='store_true')
   send_parser.add_argument('--dest', '-d', metavar='FILE_DESTPATH', help='absolute or relative path of the file on the phone (otherwise set to just the name of the file)', default='')
-  send_parser.add_argument('src', metavar='FILE_SRCPATH', help='path to the file on the computer')
+  send_parser.add_argument('src', metavar='FILE_SRCPATH', help='list of pathes to the file/folder on the computer', nargs='+')
   receive_parser = subparsers.add_parser('receive', aliases=['r'], help='Receives files from MiXplorer TCP "send to..."')
   receive_parser.add_argument('--port', '-p', metavar='TCP_PORT', help='port of the TCP server on the computer (otherwise set to 5225)', type=int, default=5225)
   receive_parser.add_argument('--password', '-w', metavar='TCP_PASSWORD', help='password of the TCP server on the computer (otherwise set to none)', default='')
