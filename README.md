@@ -8,7 +8,7 @@ Help can be obtained with "mixplorertcp -h" or "mixplorertcp s -h" for sending a
 
 Examples (supposing the TCP server is set up with "port" set to "9000" and "password" set to "test":
 
-- mixplorertcp s -i 192.168.1.10 -p 9000 -w test "C:\Users\XXX\Downloads\test" -d copytest : will send the "test" folder and its content to a subfolder "copytest" created on the current folder on the phone whose ip is "192.168.1.10"
+- mixplorertcp s -i 192.168.1.10 -p 9000 -w test "C:\Users\XXX\Downloads\test1" "C:\Users\XXX\Downloads\test2.txt" -d copytest : will send the "test1" folder and its content and the file "test2.txt" to a subfolder "copytest" created on the current folder on the phone whose ip is "192.168.1.10"
 - mixplorertcp s -i MyPhone -p 9000 -w test "C:\Users\XXX\Downloads\test\." : will send the content of the "test" folder to the current folder on the phone whose DNS registered host name is "Myphone" (probably needs to be manually recorded on the DNS server)
 - mixplorertcp s -p 9000 -w test "C:\Users\XXX\Downloads\test.txt" -d "/storage/emulated/0/Download/copied.txt" : will copy the file "test.txt" to a file called "copied.txt" in the "Download" folder of the emulated SD Card on the first phone found during scanning
 - mixplorertcp r -p 9000 -w test -u XXX -d PC_XXX -r "C:\Users\XXX\Downloads\phone" : will be detected as PC_XXX used by XXX, and store files and folders received in the folder "phone", creating it and subfolders if not existing
