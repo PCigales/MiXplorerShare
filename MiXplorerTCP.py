@@ -92,7 +92,10 @@ class MiXplorerTCP():
         dst_list += list((dst.rstrip('/') + (dst and '/') + os.path.relpath(f, os.path.dirname(s)).replace('\\', '/')) for f in s_list)
       else:
         src_list += [s]
-        dst_list += [dst or os.path.basename(s)]
+        if len(src) <= 1:
+          dst_list += [dst or os.path.basename(s)]
+        else:
+          dst_list += [dst.rstrip('/') + (dst and '/') + os.path.basename(s)]
     print('Initiating the transfer to %s:%s...' % (ip, self.port))
     so = socket.socket()
     if self.secure:
