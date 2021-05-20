@@ -219,6 +219,8 @@ class MiXplorerTCP():
   def Sendto(self, ip, src, dst):
     src_list = []
     dst_list = []
+    if not isinstance(src, (list, tuple)):
+      src = (src,)
     for s in src:
       if os.path.isdir(s):
         s_list = list((e[0] + '\\' + f) for e in os.walk(s) for f in e[2])
