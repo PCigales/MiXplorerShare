@@ -18,4 +18,20 @@ Files are not overwritten, they are renamed if already present.
 
 Tips:
  - for secure communications (must also be set in MiXplorer TCP server), a certificate and its associated private key can be provided, by storing them as "cert.pem" and "key.pem" in the same folder than the script (otherwise, the script will generate and use an ephemeral self signed certificate); both files can be obtained by running "openssl req -x509 -newkey -keyout key.pem -out cert.pem -days 3650" (the password entered when requested must be provided to the script through the "-k" argument, or to do without password, "-nodes" must be added to the command line)
- - to make files transfer easier, create a shortcut in "%AppData%\Microsoft\Windows\SendTo" to "C:\Windows\py.exe "[path to the script]" s -p [port] -w [password] -i [ip or DNS name of the phone]" (a phone icon can be found in "%SystemRoot%\System32\imageres.dll")
+ - to make files transfer easier:
+   - create a shortcut in "%AppData%\Microsoft\Windows\SendTo" to "C:\Windows\py.exe "[path to the script]" s -p [port] -w [password] -i [ip or DNS name of the phone]" (a phone icon can be found in "%SystemRoot%\System32\imageres.dll")
+   - in the registry, create the keys and entries below (to add the receive command to the "shift + right click" context menu):  
+     . HKEY_CLASSES_ROOT\Directory\shell\MiXplorerTCP:  
+       "@": "Receive from [name of the phone] (TCP)"  
+       "Extended": ""  
+       "Icon": "%windir%\system32\imageres.dll,42"  
+       "Position": "bottom"  
+     . HKEY_CLASSES_ROOT\Directory\shell\MiXplorerTCP\command:  
+       "@": "C:\Windows\py.exe "[path to the script]" r -p [port] -u [user] -d [device] -w [password] -r "%v""  
+     . HKEY_CLASSES_ROOT\Directory\Background\shell\MiXplorerTCP  
+       "@": "Receive from [name of the phone] (TCP)"  
+       "Extended": ""  
+       "Icon": "%windir%\system32\imageres.dll,42"  
+       "Position": "bottom"  
+     . HKEY_CLASSES_ROOT\Directory\Background\shell\MiXplorerTCP\command  
+       "@": "C:\Windows\py.exe "[path to the script]" r -p [port] -u [user] -d [device] -w [password] -r "%v""  
