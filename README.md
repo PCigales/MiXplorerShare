@@ -6,13 +6,13 @@ As of the version 6.57 of MiXplorer, the TCP server has been removed, and the "s
 New script MiXplorerFTP - only works with versions of MiXplorer from 6.58.4
 
 This script provides a way to transfer files and folders between a computer under Windows and an Android phone running the application MiXplorer (http://mixplorer.com/ and https://play.google.com/store/apps/details?id=com.mixplorer.silver) through its FTP sharing functionality.
-To work properly, it needs the chosen port to be authorized in the firewall on the computer for TCP incoming and outgoing connections.
-The same port and the same user and password must be used in the script parameters and, for sending files to the phone, in the settings of the FTP server in MiXplorer, and for receiving files from the phone, in the settings of the "send to" panel in MiXplorer.
-The script can operate in unencrypted mode (FTP) or explicit secured mode (FTPS), the latter requiring that the FTP server in MiXplorer to be configured with "TLS/SSL" enabled with "Explicit" option set. Because of the use of unauthenticated certificates, it may be necessary to declare the script as a trusted application in the antivirus settings related to network monitoring and encrypted connections scanning.
+To work properly, it needs the chosen port to be authorized in the firewall on the computer for TCP incoming and outgoing connections.  
+The same port and the same user and password must be used in the script parameters and, for sending files to the phone, in the settings of the FTP server in MiXplorer, and for receiving files from the phone, in the settings of the "send to" panel in MiXplorer.  
+The script can operate in unencrypted mode (FTP) or explicit secured mode (FTPS), the latter requiring the FTP server in MiXplorer to be configured with "TLS/SSL" enabled with "Explicit" option set. Because of the use of unauthenticated certificates, it may be necessary to declare the script as a trusted application in the antivirus settings related to network monitoring and encrypted connections scanning.
 
 Help can be obtained with "mixplorerftp -h" or "mixplorerftp s -h" for sending and "mixplorerftp r -h" for receiving.
 
-Examples (supposing the FTP server is set up with "port" set to "9000", "user" set to "me" and "password" set to "test":
+Examples (supposing the MiXplorer FTP server is set up with "port" set to "9000", "user" set to "me" and "password" set to "test"):
 
 - mixplorerftp s -i 192.168.1.10 -p 9000 -u me -w test "C:\Users\XXX\Downloads\test1" "C:\Users\XXX\Downloads\test2.txt" -r copytest : will send the "test1" folder and its content and the file "test2.txt" to a subfolder "copytest" existing on the working folder on the phone whose ip is "192.168.1.10"
 - mixplorerftp s -i MyPhone -p 9000 -u me -w test "C:\Users\XXX\Downloads\test\." : will send the content of the "test" folder to the working folder on the phone whose DNS registered host name is "Myphone" (probably needs to be manually recorded on the DNS server)
